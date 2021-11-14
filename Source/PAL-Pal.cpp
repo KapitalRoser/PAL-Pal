@@ -1,4 +1,4 @@
-#include "../processCore.h"
+#include "processCore.h"
 const std::string hpTypes[16] = {"Fighting", "Flying", "Poison", "Ground", "Rock", "Bug", "Ghost", 
     "Steel", "Fire", "Water", "Grass", "Electric",  "Psychic", "Ice","Dragon","Dark"};
 enum hpTypeID {Fighting, Flying, Poison, Ground, Rock, Bug, 
@@ -58,7 +58,6 @@ u32 complexPID(u32& seed, const u32 hTrainerId,
                                                      const s8 wantedNature)
 {
   u32 pid = 0;
-  bool goodId = false;
   int nbrPidAttemptLeft = 3145728;
   while (nbrPidAttemptLeft > 0)
   {
@@ -366,9 +365,9 @@ u32 singleRoll(u32&seed,std::vector<int>m_criteria){
 
 bool verifyu32(std::string formatted){
   //std::cout << "String to verify:" << formatted << std::endl;
-  for (int i = 0; i < formatted.length(); i++)
+  for (unsigned int i = 0; i < formatted.length(); i++)
   {
-    if (formatted.at(i) < '0' || formatted.at(i) > '9' && formatted.at(i) < 'A' || formatted.at(i) > 'F'){
+    if (formatted.at(i) < '0' || (formatted.at(i) > '9' && formatted.at(i) < 'A') || formatted.at(i) > 'F'){
       std::cout << "ERROR, invalid character detected at: " << formatted.at(i) << ", please try again.";
       
       return false;
@@ -384,7 +383,7 @@ u32 getInputSeed(){
   while(!validInput){
     std::cout << "\nEnter the seed produced by the seed finder: ";
     getline(std::cin,userInput);
-    for (int i = 0; i < userInput.length(); i++){
+    for (unsigned int i = 0; i < userInput.length(); i++){
       userInput.at(i) = toupper(userInput.at(i));
     }
     validInput = verifyu32(userInput);
@@ -880,16 +879,16 @@ int main(){
     //which can find ur seed based on 1 or at most 2 rolls of input again.
     //Also a forward and backwards tabber to move through the rolls (with the team members)
     //unlike with seed alone like it is now.
-    const int namingValue = 2;
-    const int rumbleValue = 40; //note in colo this is 20 calls instead.
-    const int memcardValue = 1009;
+
+    // const int namingValue = 2;
+    // const int rumbleValue = 40; //note in colo this is 20 calls instead.
+    // const int memcardValue = 1009;
     std::vector<int> m_criteria = {-1, -1, -1, -1, -1, -1};
     std::vector<u32> previousResults;
     u32 userInputRerollSeed = 0x0;
     u32 seed = 0x0;
     u32 listingSeed = 0x0;
     u32 titleSeed = 0x0;
-    u32 debugSeed = 0;
     int instructions[4] = {0,0,0,0};
     const int eeveeGenderRatio = 0x1F;
     std::string commands[255] = {"Reject","Restore","Reset","Settings","Exit"};

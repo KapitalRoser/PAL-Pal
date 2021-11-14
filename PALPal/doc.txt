@@ -1,0 +1,97 @@
+##############################
+WELCOME TO PAL XD!
+
+This tool ain't just your friend,
+it's your PAL-Pal!
+
+~~~~~~~~~  COMMANDS REFERENCE  ~~~~~~~~~~~~~~
+Reject - searches for and generates the next runnable Eevee.
+Restore - restores the preceeding result. Can be used multiple times up to the initial result. --Still a bit buggy.
+Reset - clears result data and asks for a new initial seed.
+Settings - launches the requirements setup process.
+Exit - exits the program.
+
+~~~~~~~~~~~  GENERAL USAGE  ~~~~~~~~~~~~~~~~~
+How-to-use:
+The first time you run the program it will prompt you to setup a set of requirements to search for.
+This will get saved to a config file so that the next time you open the program it will remember
+your settings. These can be changed at any time using the Settings command.
+
+1) First find your seed using the standard seed finder in Aldelaro's Manip tool.
+2) Review the Eevee and decide if you want to go for it. If so, it will tell you the:
+# of Rerolls,
+# of Memcard reloads,
+# of Rumble switches and
+# of Name screen backouts.
+
+You will also see what the team leads & HP values to expect on the final reroll.
+Just like how Alde's tool tells you.
+
+Perform the rerolls, then when done back out to the main menu.
+From here on out you won't know for sure where you are, so take your time when counting. 
+
+Now you perform the remaining instructions.
+
+~~~~~~~~~~~~~~~~~~~~~~  INSTRUCTIONS EXPLANATION  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+ - MEMORY CARD RELOAD:
+    Take out Memory Card A and back out to the "press start" screen.
+    Press A/Start, then when prompted press A to "continue without saving".
+    (This calls RNG 1009 times exactly)
+    Then back out and repeat as necessary. 
+    WHEN DONE, RE-INSERT MEMORY CARD AT "Press Start" screen and Enter,
+    so that the game registers your memory card. Otherwise the rumble switches won't work.
+
+- RUMBLE SWITCH:
+    Go to options, scroll to rumble and switch it from off to on, or vice versa. 
+    Then hit EXIT and say YES to save. This calls rng 40 times (20 on colo) and is useful
+    for making up the last few hundred calls that a reroll can't hit.
+
+- NAME SCREEN BACKOUT:
+    New Game -> up or down input -> A (Yes). Then mash B to back out to the title screen again.
+    This calls rng twice, and is the most granular form of advancement we have. This does mean that
+    the final target must be an even number of calls away, but since memcards are an odd number, we
+    always have a path towards the target.
+
+~~~~~~~~~~~~~~~~~~~~~~~  OTHER INFO  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+PAL has some interesting quirks that help make the eevees as easy or 
+even easier to obtain than NTSC. As a side-effect of not advancing 
+rng every frame in the new game screen, this game also lacks the
+10% rule that prevents 10% of all seeds from being reachable.
+In addition, because of how granular we can get with our actions,
+then for calls >= 2018, ALL RNG SEEDS ARE POSSIBLE TO HIT.
+NTSC cannot get this precise and it shows.
+This is why PAL is actually so powerful. There are certain
+eevee IV/Nature combos that cannot be hit on NTSC due to the 10% rule.
+
+These advancement methods have been known to the Shiny hunter community
+for a while. In the time since Aldelaro's initial RNG work, the shiny rng
+community has progressed immensely, and this knowledge hasn't been brought
+to the speedrunning scene. I attempt to bridge this gap with a tool like this.
+Shiny hunters are patient and are okay with long, convoluted and meticulous setups.
+They are about the furthest thing from "user-friendly". I hope that this tool helps
+the people who have done things the manual way, as well as those who don't want
+to wrangle with technical concepts just to play the game.
+
+We do introduce a optimization problem with this program that I have yet to solve.
+The current standard manip only uses the Reroll system, so there is only
+1 variable to control for: rerolls.
+However since we introduce 3 more ways to advance rng, we introduce a new question.
+What is the "fastest" way to reach our manip target?
+All the different instructions take a different amount of time.
+Rerolls are the fastest, and then name screens and memcards are next at 3.7 seconds apiece.
+Finally Rumble switches are the slowest at a minimum of 6 seconds, often more. Most of this
+time is lost waiting for the game to finish saving. 
+Currently the tool only prioritizes rerolls, considering alternatives only if necessary. However
+this means we sometimes end up with a lot of rumble switches, which isn't ideal.
+In the future, I plan to add better optimization for time.
+
+
+THANK YOU FOR USING MY TOOL! If you have any feedback please reach out to me! 
+You can find my contact info on Github or catch me somewhere else on the web.
+GOOD LUCK WITH YOUR RUNS!
+
+ 
+
+   
