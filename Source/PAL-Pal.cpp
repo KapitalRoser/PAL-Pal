@@ -883,6 +883,9 @@ int main(){
     // const int namingValue = 2;
     // const int rumbleValue = 40; //note in colo this is 20 calls instead.
     // const int memcardValue = 1009;
+
+    //STATIC BUILD COMMAND: DON'T LOSE THIS: g++ -Wall -o PAL-Pal PAL-Pal.cpp -static
+
     std::vector<int> m_criteria = {-1, -1, -1, -1, -1, -1};
     std::vector<u32> previousResults;
     u32 userInputRerollSeed = 0x0;
@@ -897,7 +900,7 @@ int main(){
     PokemonRequirements requirements;
     requirements.validHPTypes.fill(false);
     requirements.validNatures.fill(false);
-    
+    bool firstRun = true;
 
     // requirements.spAtkIV = 31;
     // requirements.speedIV = 22;
@@ -919,11 +922,18 @@ int main(){
 
   bool searchActive = true;
   //minimum calls in order to be able to hit the target.
-  LCGn(seed,1002);
 
   while(searchActive){
     //search for runnable eevee.
     // int eeveesSearched = 0;
+    if (firstRun){
+      LCGn(seed,1002);
+      firstRun = false;
+      //May need additional calls to prevent
+      //a edge-case scenario where the result is odd and <1009 + no roll gets an even result, creating a unreachable target.
+      //In this case, additional pathfinding criteria is needed before writing off the result completely.
+      //When N >= 2013, pathfinding is guaranteed using static advancement methods.
+    }
     while(!foundRunnable(eevee,requirements)){
         // eeveesSearched++;
         listingSeed = LCG(seed);
@@ -953,9 +963,9 @@ int main(){
     << "\nNature: " << naturesList[eevee.natureIndex];
     std::cout<<"\nGender: ";
     if (eevee.genderIndex){
-        std::cout << "Male";
-    } else {
         std::cout << "Female";
+    } else {
+        std::cout << "Male";
     }
     std::cout << "\nShiny: ";
     if (eevee.isShiny){
@@ -1089,6 +1099,7 @@ while(rem > 0){
       } else if(currentCommand == commands[2]){
         //Reset
         validCommand = true;
+        firstRun = true;
         userInputRerollSeed = getInputSeed();
         seed = userInputRerollSeed;
         listingSeed = seed;
