@@ -466,7 +466,6 @@ int evenPathFind(int rem, int instructions[4],std::vector<u32>&rerollSeeds){
   */
  return rem;
 }
-
 std::vector<u32> autoRollN(u32&seed,int n,std::vector<int>m_criteria){
   //Reroll loop!
   std::vector<u32>rerollSeeds;
@@ -479,6 +478,11 @@ std::vector<u32> autoRollN(u32&seed,int n,std::vector<int>m_criteria){
     m_criteria = {-1, -1, -1, -1, -1, -1}; //refresh criteria slots.
   }
   return rerollSeeds;
+}
+void handleEmptyString(std::string &str){
+  while (str.length() < 1){
+    getline(std::cin,str);
+  }
 }
 bool verifyu32(std::string formatted){
   //std::cout << "String to verify:" << formatted << std::endl;
@@ -500,6 +504,7 @@ u32 getInputSeed(){
   while(!validInput){
     std::cout << "\nEnter the seed produced by the seed finder: ";
     getline(std::cin,userInput);
+    handleEmptyString(userInput);
     for (unsigned int i = 0; i < userInput.length(); i++){
       userInput.at(i) = toupper(userInput.at(i));
     }
@@ -545,22 +550,32 @@ int inputInt = 0;
       case 6: //nature
         {
           config >> inputInt; //tells how many natures are valid
-          int n = inputInt;
-          for (int i = 0; i < n; i++)
-          {
-            config >> inputInt;
-            inputReqs.validNatures[inputInt] = true;
+          if (inputInt == 25){
+            //handles 'any'
+            inputReqs.validNatures.fill(true);
+          } else {
+            int n = inputInt;
+            for (int i = 0; i < n; i++)
+            {
+              config >> inputInt;
+              inputReqs.validNatures[inputInt] = true;
+            }
           }
           break;
         }
       case 7: //HPType
         {
           config >> inputInt;
-          int n = inputInt;
-          for (int i = 0; i < n; i++)
-          {
-            config >> inputInt;
-            inputReqs.validHPTypes[inputInt] = true;
+          if (inputInt == 16){
+            //handles 'any'
+            inputReqs.validHPTypes.fill(true);
+          } else {
+            int n = inputInt;
+            for (int i = 0; i < n; i++)
+            {
+              config >> inputInt;
+              inputReqs.validHPTypes[inputInt] = true;
+            }
           }
           break;
         }
@@ -585,9 +600,9 @@ int inputInt = 0;
       }
     }
 }
-void writeReqsConfig(PokemonRequirements&inputReqs){
+void writeReqsConfig(PokemonRequirements&inputReqs, float version){
     std::ofstream configW("palpalConfig.txt");
-    //time to write the file!
+    //First, get requirements from user
     std::vector<std::string> strReqs = {"HP","ATK","DEF","SPA","SPD","SPE"};
     std::vector<int>IVreqs;
     unsigned int IV = 0;
@@ -647,9 +662,11 @@ void writeReqsConfig(PokemonRequirements&inputReqs){
     bool allNaturesEntered = false;
     std::string inputNature = "";
     std::vector<int> natureIDXs;
+    bool natureAny = false;
     std::cout << "type the name of a nature, or enter 'any' to accept all natures: ";
     while (!allNaturesEntered){
       getline(std::cin,inputNature);
+      handleEmptyString(inputNature);
       formatCase(inputNature,lower);
       inputNature.at(0) = toupper(inputNature.at(0)); //capitalize
       std::cout << "Nature entered: " << inputNature << std::endl;
@@ -660,6 +677,7 @@ void writeReqsConfig(PokemonRequirements&inputReqs){
       } else if (inputNature == "Any"){
         for (int i = 0; i < 25; i++)
         {
+          natureAny = true;
           inputReqs.validNatures[i] = true;
           allNaturesEntered = true;
         }
@@ -682,14 +700,8 @@ void writeReqsConfig(PokemonRequirements&inputReqs){
           std::cout << "Nature not found - invalid input.\n";
         }
         std::cout << "Enter more natures or use commands 'Any' or 'Done': ";
-        int full = 0;
-        for (int i = 0; i < 25; i++)
-        {
-          if (inputReqs.validNatures[i] == true){
-            full++;
-          }
-        }
-        if (full == 25){
+        if (natureIDXs.size() == 25){
+          natureAny = true;
           std::cout << "You really took the time to manually enter every nature...wow." 
           <<"fine! all natures are enabled, moving on.";
           allNaturesEntered = true;
@@ -705,9 +717,11 @@ void writeReqsConfig(PokemonRequirements&inputReqs){
     bool allHPTypesEntered = false;
     std::string inputHPT = "";
     std::vector<int> HPTIDXs;
+    bool hpTypeAny = false;
     std::cout << "Enter the name of a type, or enter 'any' to accept all types: ";
     while (!allHPTypesEntered){
       getline(std::cin,inputHPT);
+      handleEmptyString(inputHPT);
       formatCase(inputHPT,lower);
       inputHPT.at(0) = toupper(inputHPT.at(0)); //capitalize
       std::cout << "HPT entered: " << inputHPT << std::endl;
@@ -718,6 +732,7 @@ void writeReqsConfig(PokemonRequirements&inputReqs){
       } else if (inputHPT == "Any"){
         for (int i = 0; i < 25; i++)
         {
+          hpTypeAny = true;
           inputReqs.validHPTypes[i] = true;
           allHPTypesEntered = true;
         }
@@ -740,14 +755,8 @@ void writeReqsConfig(PokemonRequirements&inputReqs){
           std::cout << "Hidden Power Type not found - invalid input.\n";
         }
         std::cout << "Enter more types or use commands 'Any' or 'Done': ";
-        int full = 0;
-        for (int i = 0; i < 16; i++)
-        {
-          if (inputReqs.validHPTypes[i] == true){
-            full++;
-          }
-        }
-        if (full == 16){
+        if (HPTIDXs.size() == 16){
+          hpTypeAny = true;
           std::cout << "You really took the time to manually enter every Hidden Power type...wow." 
           <<"fine! all HPs are enabled, moving on.";
           allHPTypesEntered = true;
@@ -769,6 +778,7 @@ void writeReqsConfig(PokemonRequirements&inputReqs){
     std::string inputGender = "";
     std::cout << "Want to choose a specific gender? Enter 'Male' or 'M', 'Female' or 'F', or 'Any': ";
     getline(std::cin,inputGender);
+    handleEmptyString(inputGender);
     formatCase(inputGender,lower);
     inputGender.at(0) = toupper(inputGender.at(0));
     if (inputGender == "Male" || inputGender == "M"){
@@ -783,6 +793,7 @@ void writeReqsConfig(PokemonRequirements&inputReqs){
     std::string inputShiny = "";
     std::cout << "Want the target to be shiny? Enter Yes, No, or Any:";
     getline(std::cin,inputShiny);
+    handleEmptyString(inputShiny);
     formatCase(inputShiny,lower);
     inputShiny.at(0) = toupper(inputShiny.at(0));
     if (inputShiny == "No" || inputShiny == "N"){
@@ -797,6 +808,7 @@ void writeReqsConfig(PokemonRequirements&inputReqs){
     std::string inputEven = "";
     std::cout << "Want to force the number of Rumble Switches to be even-numbered? Enter Yes or No:";
     getline(std::cin,inputEven);
+    handleEmptyString(inputEven);
     formatCase(inputEven,lower);
     inputEven.at(0) = toupper(inputEven.at(0));
     if (inputEven == "Yes" || inputEven == "Y"){
@@ -807,17 +819,27 @@ void writeReqsConfig(PokemonRequirements&inputReqs){
     std::cout << "All requirements recorded! Good luck!\n";
 
     //config filewrite
+
     configW 
+    << version << "\n"
     << inputReqs.hpIV    <<"\n"<< inputReqs.atkIV   <<"\n"
     << inputReqs.defIV   <<"\n"<< inputReqs.spAtkIV <<"\n"
-    << inputReqs.spDefIV <<"\n"<< inputReqs.speedIV <<"\n"
-    << natureIDXs.size()<<"\n";
-    for (unsigned int i = 0; i < natureIDXs.size(); i++){
-      configW << natureIDXs.at(i) << "\n";
+    << inputReqs.spDefIV <<"\n"<< inputReqs.speedIV <<"\n";
+    if (natureAny){
+      configW << 25 << "\n";
+    } else {
+      configW << natureIDXs.size()<<"\n";
+      for (unsigned int i = 0; i < natureIDXs.size(); i++){
+        configW << natureIDXs.at(i) << "\n";
+      } 
     }
-    configW << HPTIDXs.size()<<"\n";
-    for (unsigned int i = 0; i < HPTIDXs.size(); i++){
-      configW << HPTIDXs.at(i) << "\n";
+    if (hpTypeAny){
+      configW << 16 << "\n";
+    } else {
+      configW << HPTIDXs.size()<<"\n";
+      for (unsigned int i = 0; i < HPTIDXs.size(); i++){
+        configW << HPTIDXs.at(i) << "\n";
+      }
     }
     configW << inputReqs.hiddenPowerPower <<"\n"
     << inputReqs.genderIndex <<"\n"
@@ -825,23 +847,30 @@ void writeReqsConfig(PokemonRequirements&inputReqs){
     << inputReqs.forceEven;
     configW.close();
 }
-PokemonRequirements setPokeReqs(){
+PokemonRequirements setPokeReqs(float version){
   //intended for initial run
-  //maybe make a version check, and store version inside config at the top, so that fresh installs don't need to redo their configs.
   PokemonRequirements inputReqs;
   inputReqs.validNatures.fill(0);
   inputReqs.validHPTypes.fill(0);
+  float readVersion = 0;
   //first open config file
   std::ifstream configR("palpalConfig.txt");
   if (configR.fail()){
     std::cout << "Creating new Config file!\n";
     configR.close();
-    writeReqsConfig(inputReqs);
+    writeReqsConfig(inputReqs,version);
     return inputReqs;
   } else {
-    std::cout << "Successfully read Config file!\n";
-    readReqsConfig(inputReqs,configR);
-    return inputReqs;
+    configR >> readVersion;
+    if (readVersion != version){
+      std::cout << "config outdated, empty, or corrupted. Replacing Config file!";
+      writeReqsConfig(inputReqs,version);
+      return inputReqs;
+    } else {
+      std::cout << "Successfully read Config file!\n";
+      readReqsConfig(inputReqs,configR);
+      return inputReqs;
+    }
   }
 }
 std::string getLastObtainedCriteriasString(std::vector<int>m_criteria)
@@ -898,6 +927,7 @@ std::string getBattleTeamInfo(u32 seed){
   m_criteria = mGenerateBattleTeam(seed,m_criteria,m_criteria);
   return getLastObtainedCriteriasString(m_criteria);
 }
+
 void printPokeInfo(PokemonProperties eevee, u32 listingSeed, int callsToTarget){
     std::cout << "\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n";
     std::cout << "First runnable Eevee found at: " << std::hex << listingSeed << std::dec<< " which is " << callsToTarget << " calls away\n";
@@ -961,6 +991,7 @@ int main(){
   // const int memcardValue = 1009;
 
   //STATIC BUILD COMMAND: DON'T LOSE THIS: g++ -Wall -o PAL-Pal PAL-Pal.cpp -static
+  const float BUILD_VERSION = 0.20;
 
   std::vector<int> m_criteria = {-1, -1, -1, -1, -1, -1};
   std::vector<u32> previousResults;
@@ -984,7 +1015,7 @@ int main(){
   userInputRerollSeed = getInputSeed();
   seed = userInputRerollSeed;
   listingSeed = seed;
-  requirements = setPokeReqs(); 
+  requirements = setPokeReqs(BUILD_VERSION); 
   bool searchActive = true;
   while(searchActive){
     //search for runnable eevee.
@@ -1053,6 +1084,7 @@ int main(){
   instructions[3] = 0;
   std::cout <<"\nThe current result has been saved.\nEnter a command to continue:\nCommand: ";
   getline(std::cin,currentCommand);
+  handleEmptyString(currentCommand);
   formatCase(currentCommand,lower);
   currentCommand.at(0) = toupper(currentCommand.at(0));
   //std::cout <<"RESULTS STORED: " << previousResults.size() << "\n";
@@ -1063,7 +1095,7 @@ int main(){
       //Settings
       validCommand = true;
       requirements = {};
-      writeReqsConfig(requirements);
+      writeReqsConfig(requirements,BUILD_VERSION);
     } else if (currentCommand == commands[0]){
       //Reject
       validCommand = true;
@@ -1099,6 +1131,7 @@ int main(){
     } else {
       std::cout << "Invalid command. Please try again: ";
       getline(std::cin,currentCommand);
+      handleEmptyString(currentCommand);
       formatCase(currentCommand,lower);
       currentCommand.at(0) = toupper(currentCommand.at(0));
 
