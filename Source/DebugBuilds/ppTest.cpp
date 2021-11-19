@@ -51,8 +51,11 @@ static const std::array<std::array<int, 2>, 10> s_quickBattleTeamMaxBaseHPStat =
                                                                                    {{320, 270}},
                                                                                    {{270, 230}}}};
 
-u32 complexPID(u32& seed, const u32 hTrainerId, const u32 lTrainerId, const u32 dummyId, const WantedShininess shininess, 
-const s8 wantedGender, const u32 genderRatio, const s8 wantedNature)
+u32 complexPID(u32& seed, const u32 hTrainerId,
+                                                     const u32 lTrainerId, const u32 dummyId,
+                                                     const WantedShininess shininess,
+                                                     const s8 wantedGender, const u32 genderRatio,
+                                                     const s8 wantedNature)
 {
   u32 pid = 0;
   int nbrPidAttemptLeft = 3145728;
@@ -103,6 +106,54 @@ const s8 wantedGender, const u32 genderRatio, const s8 wantedNature)
     }
   }
   return pid;
+}
+
+void condensedGenerateMon (PokemonProperties &main, u32 &seed, int genderRatio){
+    u32 TID, SID;
+    setIDs(seed,TID,SID);
+    main.trainerId = TID;
+    LCGn(seed,2); //Dummy Pid
+    extractIVs(main,seed);
+    LCG(seed); //Ability
+    fillStarterGenHiddenPowerInfo(main);
+    u32 PID = complexPID(seed, SID, TID, 0, WantedShininess::any,-1,0,-1);
+    //u32 PID = simplePID(seed); //for xd, is there any difference between using complexpid and simplepid? Can't tell any in-game filters
+    main.isShiny = isPidShiny(TID,SID,PID);
+    main.genderIndex = getPidGender(genderRatio,PID);
+    main.natureIndex = PID % 25;
+}
+bool foundRunnable(PokemonProperties candidate, PokemonRequirements reqs){
+  return (
+    candidate.hpIV >= reqs.hpIV &&
+    candidate.atkIV >= reqs.atkIV &&
+    candidate.defIV >= reqs.defIV &&
+    candidate.spAtkIV >= reqs.spAtkIV &&
+    candidate.spDefIV >= reqs.spDefIV &&
+    candidate.speedIV >= reqs.speedIV &&
+    candidate.hiddenPowerPower >= reqs.hiddenPowerPower &&
+    reqs.validHPTypes[candidate.hiddenPowerTypeIndex] &&
+    reqs.validNatures[candidate.natureIndex] && 
+    (reqs.isShiny == 2 || reqs.isShiny == candidate.isShiny)
+  );
+}
+void determineFinalInstructions(int instructions[4], int &remainingCalls){
+  //ASSUMES EVEN
+  while (remainingCalls > 0){
+    if (remainingCalls >= 40){
+      instructions[1] = remainingCalls / 40; //integer division intentional, want to always round down for safety.
+      remainingCalls -= instructions[1]*40;
+    } else {
+      //std::cout <<"REM: " << remainingCalls << "\n";
+      if (remainingCalls > 1){
+        instructions[2] = remainingCalls / 2;
+        remainingCalls -= instructions[2]*2;
+        //std::cout << "BACKOUTS: " << instructions[2]*2;
+      } else {
+          std::cout << "ERROR: REM IS UNEVEN\n";
+          remainingCalls = 0;
+      }
+    }
+  }
 }
 std::array<u8, 6> generateEVs(u32& seed, const bool allowUnfilledEV, const bool endPrematurely)
 {
@@ -177,6 +228,42 @@ std::array<u8, 6> generateEVs(u32& seed, const bool allowUnfilledEV, const bool 
     }
   }
   return EVs;
+}
+u32 myRollRNGToBattleMenu(u32 &seed, bool fromBoot, bool validMemcard)
+{
+  // bool fromBoot = false; //false would be from title screen.
+  // bool validMemcard = true;
+  if (fromBoot){
+    LCGn(seed, 1137);
+  }
+  if (!validMemcard){
+    LCGn(seed,1009); //w no memcard.
+  }
+  LCG(seed);
+  LCG(seed);
+  
+  // Some dummy team gen going on...
+  for (int i = 0; i < 4; i++)
+  {
+    // The player trainer ID is generated, low then high 16 bits
+    u32 lTrainerId = LCG(seed) >> 16;
+    u32 hTrainerId = LCG(seed) >> 16;
+    for (int j = 0; j < 2; j++)
+    {
+      // Dummy personality ID (doesn't matter)
+      LCG(seed);
+      LCG(seed);
+      // HP, ATK, DEF IV
+      LCG(seed);
+      // SPEED, SPATK, SPDEF IV
+      LCG(seed);
+      // Ability
+      LCG(seed);
+      complexPID(seed, hTrainerId, lTrainerId, 0, WantedShininess::notShiny,-1,0,-1);
+      generateEVs(seed, true, true);
+    }
+  }
+  return seed;
 }
 std::vector<int> mGenerateBattleTeam(u32 &seed, const std::vector<int> criteria,std::vector<int>m_criteria)
 {
@@ -258,137 +345,6 @@ std::vector<int> mGenerateBattleTeam(u32 &seed, const std::vector<int> criteria,
                                    obtainedEnemyHP.end());
   return m_criteria;
 }
-void condensedGenerateMon (PokemonProperties &main, u32 &seed, int genderRatio){
-    u32 TID, SID;
-    setIDs(seed,TID,SID);
-    main.trainerId = TID;
-    LCGn(seed,2); //Dummy Pid
-    extractIVs(main,seed);
-    LCG(seed); //Ability
-    fillStarterGenHiddenPowerInfo(main);
-    u32 PID = complexPID(seed, SID, TID, 0, WantedShininess::any,-1,0,-1);
-    //u32 PID = simplePID(seed); //for xd, is there any difference between using complexpid and simplepid? Can't tell any in-game filters
-    main.isShiny = isPidShiny(TID,SID,PID);
-    main.genderIndex = getPidGender(genderRatio,PID);
-    main.natureIndex = PID % 25;
-}
-int seekCallsToTargetEevee(u32 originSeed, u32 TargetSeed){
-  return findGap(originSeed,LCGn_BACK(TargetSeed,1002),1); //intended for generation, otherwise change constant
-}
-int testRerolls(u32 testSeed,int &callsToTarget, std::vector<u32>&rerollSeeds,std::vector<int>m_criteria){
-  bool maxedOut = false;
-  int rolls = 0;
-  int i = 0;
-  while(!maxedOut){
-  mGenerateBattleTeam(testSeed,m_criteria,m_criteria);
-  int distance = findGap(rerollSeeds.back(),testSeed,1);
-  if (distance <= callsToTarget){
-    rerollSeeds.push_back(testSeed);
-    callsToTarget -= distance;
-    rolls++;
-  } else {
-    //break case
-    maxedOut = true;
-  }
-}
-return rolls;
-//Don't forget to update seed.
-}
-bool CTTAcceptable(u32 seed,int ctt){
-  if (ctt >= 1009 || ctt % 2 == 0){
-    return true;
-  }
-  //The searching code below is super janky, but it works. Seems to perform reasonably well. Ran a 850,000
-  std::vector<u32>temporary  = {seed};
-  std::vector<int> m_criteria = {-1, -1, -1, -1, -1, -1};
-  testRerolls(seed,ctt,temporary,m_criteria);
-  while (!temporary.size() > 2){
-    if (ctt % 2 == 0){
-      return true;
-    } else {
-      std::cout << "hit multiple rolls before 1009";
-      if (temporary.size() > 1){
-        ctt+= findGap(temporary.back(),temporary.at(temporary.size()-2),0);
-        temporary.pop_back();
-      } else {
-        temporary.clear();
-      }
-    }
-  }
-  return false;
-}
-bool foundRunnable(PokemonProperties candidate, PokemonRequirements reqs){
-  return (
-    candidate.hpIV >= reqs.hpIV &&
-    candidate.atkIV >= reqs.atkIV &&
-    candidate.defIV >= reqs.defIV &&
-    candidate.spAtkIV >= reqs.spAtkIV &&
-    candidate.spDefIV >= reqs.spDefIV &&
-    candidate.speedIV >= reqs.speedIV &&
-    candidate.hiddenPowerPower >= reqs.hiddenPowerPower &&
-    reqs.validHPTypes[candidate.hiddenPowerTypeIndex] &&
-    reqs.validNatures[candidate.natureIndex] && 
-    (reqs.isShiny == 2 || reqs.isShiny == candidate.isShiny)
-  );
-}
-void determineFinalInstructions(int instructions[4], int &remainingCalls){
-  //ASSUMES EVEN
-  while (remainingCalls > 0){
-    if (remainingCalls >= 40){
-      instructions[1] = remainingCalls / 40; //integer division intentional, want to always round down for safety.
-      remainingCalls -= instructions[1]*40;
-    } else {
-      //std::cout <<"REM: " << remainingCalls << "\n";
-      if (remainingCalls > 1){
-        instructions[2] = remainingCalls / 2;
-        remainingCalls -= instructions[2]*2;
-        //std::cout << "BACKOUTS: " << instructions[2]*2;
-      } else {
-          std::cout << "ERROR: REM IS UNEVEN\n";
-          remainingCalls = 0;
-      }
-    }
-  }
-}
-
-u32 myRollRNGToBattleMenu(u32 &seed, bool fromBoot, bool validMemcard)
-{
-  // bool fromBoot = false; //false would be from title screen.
-  // bool validMemcard = true;
-  if (fromBoot){
-    LCGn(seed, 1137);
-  }
-  if (!validMemcard){
-    LCGn(seed,1009); //w no memcard.
-  }
-  LCG(seed);
-  LCG(seed);
-  
-  // Some dummy team gen going on...
-  for (int i = 0; i < 4; i++)
-  {
-    // The player trainer ID is generated, low then high 16 bits
-    u32 lTrainerId = LCG(seed) >> 16;
-    u32 hTrainerId = LCG(seed) >> 16;
-    for (int j = 0; j < 2; j++)
-    {
-      // Dummy personality ID (doesn't matter)
-      LCG(seed);
-      LCG(seed);
-      // HP, ATK, DEF IV
-      LCG(seed);
-      // SPEED, SPATK, SPDEF IV
-      LCG(seed);
-      // Ability
-      LCG(seed);
-      complexPID(seed, hTrainerId, lTrainerId, 0, WantedShininess::notShiny,-1,0,-1);
-      generateEVs(seed, true, true);
-    }
-  }
-  return seed;
-}
-
-
 std::vector<u32> autoRollN(u32&seed,int n,std::vector<int>m_criteria){
   //Reroll loop!
   std::vector<u32>rerollSeeds;
@@ -402,6 +358,11 @@ std::vector<u32> autoRollN(u32&seed,int n,std::vector<int>m_criteria){
   }
   return rerollSeeds;
 }
+u32 singleRoll(u32&seed,std::vector<int>m_criteria){
+  mGenerateBattleTeam(seed,m_criteria,m_criteria);
+  return seed;
+}
+
 bool verifyu32(std::string formatted){
   //std::cout << "String to verify:" << formatted << std::endl;
   for (unsigned int i = 0; i < formatted.length(); i++)
@@ -434,6 +395,60 @@ u32 getInputSeed(){
   hexConvert.str("");
   return userSeed;
 }
+
+// bool getReqString(int n){
+//   bool workingItem[n];
+//   std::string inputStr;
+//   std::cout << "Enter acceptable terms(s): \n";
+//   bool allStringsEntered = false;
+//   int sizeOfLoop = 25;
+//   std::cout << "type the name of the requirement, or enter 'any' to accept all natures: ";
+//   while (!allStringsEntered){
+//     getline(std::cin,inputStr);
+//     formatCase(inputStr,lower);
+//     inputStr.at(0) = toupper(inputStr.at(0)); //capitalize
+//     std::cout << "item entered: " << inputStr << std::endl;
+
+//     //exit statements:
+//     if (inputStr == "Done"){
+//       allStringsEntered = true;
+//     } else if (inputStr == "Any"){
+//       for (int i = 0; i < n; i++)
+//       {
+//         workingItem[i] = true;
+//         allStringsEntered = true;
+//       }
+//     } else {
+//       bool foundAny = false;
+//       for (int i = 0; i < n; i++)
+//       {
+//         if (inputStr == naturesList[i]){
+//           std::cout <<"Added "<< naturesList[i] <<"!\n";
+//           foundAny = true;
+//           workingItem[i] = true;
+//         }
+//       }
+//       if (!foundAny){
+//         std::cout << "Nature not found - invalid input.";
+//       }
+//       std::cout << "Enter more items or use commands 'Any' or 'Done': ";
+//       int full = 0;
+//       for (int i = 0; i < n; i++)
+//       {
+//         if (workingItem[i] == true){
+//           full++;
+//         }
+//       }
+//       if (full == n){
+//         std::cout << "You really took the time to manually enter every nature/hidden power...wow." 
+//         <<"fine! all natures/hidden powers are enabled, moving on.";
+//         allStringsEntered = true;
+//       }
+//     }
+//   }
+
+//   return workingItem;
+// }
 void readReqsConfig(PokemonRequirements &inputReqs, std::ifstream &config){
 int inputInt = 0;
     for (int i = 0; i < 11; i++)
@@ -776,6 +791,24 @@ PokemonRequirements setPokeReqs(){
     // << requirements.genderIndex <<"\n"
     // << requirements.isShiny <<"\n";
 }
+
+void printPokeInfo(){
+
+}
+void printInstructions(int instructions[4]){
+    // std::cout << "Instruction set: " << instructions[3] << "/" << instructions[0] 
+    // << "/" << instructions[1] << "/" << instructions[2] << std::endl;
+    std::cout << "To reach target, peform: \n"
+    << instructions[3] << " reroll(s),\n"
+    << instructions[0] << " memory card reload(s),\n"
+    << instructions[1] << " rumble switch(es),\n"
+    << instructions[2] << " naming screen back-out(s).\n";
+
+    // debugSeed = userInputRerollSeed;
+    // std::cout << std::hex << LCGn(debugSeed,memcardValue*instructions[0]);
+    // std::cout << "\n" << LCGn(debugSeed,rumbleValue*instructions[1]);
+    // std::cout << "\n" << LCGn(debugSeed,namingValue*instructions[2]);
+}
 std::string getLastObtainedCriteriasString(std::vector<int>m_criteria)
 {
   std::string criteriasString = "Player team leader: ";
@@ -825,52 +858,11 @@ std::string getLastObtainedCriteriasString(std::vector<int>m_criteria)
 
   return criteriasString;
 }
+
 std::string getBattleTeamInfo(u32 seed){
   std::vector<int> m_criteria = {-1, -1, -1, -1, -1, -1};
   m_criteria = mGenerateBattleTeam(seed,m_criteria,m_criteria);
   return getLastObtainedCriteriasString(m_criteria);
-}
-void printPokeInfo(PokemonProperties eevee, u32 listingSeed, int callsToTarget){
-    std::cout << "\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n";
-    std::cout << "First runnable Eevee found at: " << std::hex << listingSeed << std::dec<< " which is " << callsToTarget << " calls away\n";
-    std::cout << "TID: " << eevee.trainerId 
-    <<  "\n" << eevee.hpIV
-    << " / " << eevee.atkIV
-    << " / " << eevee.defIV
-    << " / " << eevee.spAtkIV
-    << " / " << eevee.spDefIV
-    << " / " << eevee.speedIV
-    << " \nHidden Power: " << hpTypes[eevee.hiddenPowerTypeIndex]
-    << ": " << eevee.hiddenPowerPower
-    << "\nNature: " << naturesList[eevee.natureIndex];
-    std::cout<<"\nGender: ";
-    if (eevee.genderIndex){
-        std::cout << "Female";
-    } else {
-        std::cout << "Male";
-    }
-    std::cout << "\nShiny: ";
-    if (eevee.isShiny){
-      std::cout << "True";
-    } else {
-      std::cout << "False";
-    }
-    std::cout << "\n";
-    std::cout << "\n+ + + + + + + + + + + + \n\n";
-}
-void printInstructions(int instructions[4]){
-    // std::cout << "Instruction set: " << instructions[3] << "/" << instructions[0] 
-    // << "/" << instructions[1] << "/" << instructions[2] << std::endl;
-    std::cout << "To reach target, peform: \n"
-    << instructions[3] << " reroll(s),\n"
-    << instructions[0] << " memory card reload(s),\n"
-    << instructions[1] << " rumble switch(es),\n"
-    << instructions[2] << " naming screen back-out(s).\n";
-
-    // debugSeed = userInputRerollSeed;
-    // std::cout << std::hex << LCGn(debugSeed,memcardValue*instructions[0]);
-    // std::cout << "\n" << LCGn(debugSeed,rumbleValue*instructions[1]);
-    // std::cout << "\n" << LCGn(debugSeed,namingValue*instructions[2]);
 }
 void printLogo(){
   std::cout << "\n* * * * * * * * * * * * * * * * * * * *\n";
@@ -882,92 +874,176 @@ void printLogo(){
 |_| /_/    \_\______|   |_|   \__,_|_|)";
 std::cout << "\n\n* * * * * * * * * * * * * * * * * * * *\n\n";
 }
+
+void runSeed(u32 runWithSeed){
+
+
+
+
+
+}
+
 int main(){
-  //an Oops I got lost - feature might be a nice addition to the main tool,
-  //which can find ur seed based on 1 or at most 2 rolls of input again.
-  //Also a forward and backwards tabber to move through the rolls (with the team members)
-  //unlike with seed alone like it is now.
+    //an Oops I got lost - feature might be a nice addition to the main tool,
+    //which can find ur seed based on 1 or at most 2 rolls of input again.
+    //Also a forward and backwards tabber to move through the rolls (with the team members)
+    //unlike with seed alone like it is now.
 
-  // const int namingValue = 2;
-  // const int rumbleValue = 40; //note in colo this is 20 calls instead.
-  // const int memcardValue = 1009;
+    // const int namingValue = 2;
+    // const int rumbleValue = 40; //note in colo this is 20 calls instead.
+    // const int memcardValue = 1009;
 
-  //STATIC BUILD COMMAND: DON'T LOSE THIS: g++ -Wall -o PAL-Pal PAL-Pal.cpp -static
+    //STATIC BUILD COMMAND: DON'T LOSE THIS: g++ -Wall -o PAL-Pal PAL-Pal.cpp -static
 
-  std::vector<int> m_criteria = {-1, -1, -1, -1, -1, -1};
-  std::vector<u32> previousResults;
-  u32 userInputRerollSeed = 0x0;
-  u32 seed = 0x0;
-  u32 listingSeed = 0x0;
-  u32 titleSeed = 0x0;
-  int instructions[4] = {0,0,0,0};
-  const int eeveeGenderRatio = 0x1F;
-  std::string commands[255] = {"Reject","Restore","Reset","Settings","Exit"};
-  std::string currentCommand = "";
-  PokemonProperties eevee;
-  PokemonRequirements requirements;
-  requirements.validHPTypes.fill(false);
-  requirements.validNatures.fill(false);
-  bool firstRun = true;
-  const int MINIMUM_VIABLE_CTT = 1002;
+    std::vector<int> m_criteria = {-1, -1, -1, -1, -1, -1};
+    std::vector<u32> previousResults;
+    u32 userInputRerollSeed = 0x0;
+    u32 seed = 0x0;
+    u32 listingSeed = 0x0;
+    u32 titleSeed = 0x0;
+    int instructions[4] = {0,0,0,0};
+    const int eeveeGenderRatio = 0x1F;
+    std::string commands[255] = {"Reject","Restore","Reset","Settings","Exit"};
+    std::string currentCommand = "";
+    PokemonProperties eevee;
+    PokemonRequirements requirements;
+    requirements.validHPTypes.fill(false);
+    requirements.validNatures.fill(false);
+    bool firstRun = true;
 
-  //initialize
-  printLogo();
-  userInputRerollSeed = getInputSeed();
-  seed = userInputRerollSeed;
-  listingSeed = seed;
-  requirements = setPokeReqs(); 
+    u32 simSeed = 0x0;
+
+    // requirements.spAtkIV = 31;
+    // requirements.speedIV = 22;
+    // requirements.hiddenPowerPower = 68;
+    // requirements.validHPTypes[Psychic] = true;
+    // requirements.validHPTypes[Electric] = true;
+    // requirements.validNatures[Mild] = true;
+    // requirements.validNatures[Modest] = true;
+    // requirements.validNatures[Rash] = true;
+    // requirements.isShiny = false;
+
+    printLogo();
+
+    userInputRerollSeed = simSeed;
+    seed = userInputRerollSeed;
+    listingSeed = seed;
+    
+    requirements = setPokeReqs(); //What a chonky function.
+
   bool searchActive = true;
+  //minimum calls in order to be able to hit the target.
+
   while(searchActive){
     //search for runnable eevee.
     // int eeveesSearched = 0;
     if (firstRun){
       LCGn(seed,1002);
       firstRun = false;
+      //May need additional calls to prevent
+      //a edge-case scenario where the result is odd and <1009 + no roll gets an even result, creating a unreachable target.
+      //In this case, additional pathfinding criteria is needed before writing off the result completely.
+      //When N >= 2013, pathfinding is guaranteed using static advancement methods.
     }
-    bool cttPass = false;
-    int eeveeSearched = 0;
-
-    while(!(foundRunnable(eevee,requirements) && cttPass)){
-        listingSeed = LCG(seed); //seed incremented and stored
-        eeveeSearched++;
+    while(!foundRunnable(eevee,requirements)){
+        // eeveesSearched++;
+        listingSeed = LCG(seed);
         condensedGenerateMon(eevee,seed,eeveeGenderRatio);
-        if (foundRunnable(eevee,requirements)){
-          cttPass = CTTAcceptable(seed,seekCallsToTargetEevee(userInputRerollSeed,listingSeed));
-        }
-        seed = listingSeed; //seed restored
+        seed = listingSeed;
     }
-
-    //WHEN CONFIRMED VALID: 
-    LCGn_BACK(seed,1000 + 2); // generation minimum
+    // std::cout << "Eevees searched: " << eeveesSearched << "\n";
+    // std::cout << "Reached: " << std::hex << listingSeed << std::endl;
+    LCGn_BACK(seed,1002);
     titleSeed = seed;
-    std::cout << "Target (seed at title screen): " << std::hex << titleSeed << std::dec << std::endl;
-    //find *primary* calls to target.
-    int callsToTarget = seekCallsToTargetEevee(userInputRerollSeed,listingSeed);
-    printPokeInfo(eevee,listingSeed,callsToTarget);
+    //std::cout << "Target (seed at title screen): " << std::hex << titleSeed << std::dec << std::endl;
+   
+    //find calls to target.
+    int callsToTarget = 0;
+    callsToTarget = findGap(userInputRerollSeed,titleSeed,1);
+    // std::cout << "\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n";
+    // std::cout << "First runnable Eevee found at: " << std::hex << listingSeed << std::dec<< " which is " << callsToTarget << " calls away\n";
+    // std::cout << "TID: " << eevee.trainerId 
+    // <<  "\n" << eevee.hpIV
+    // << " / " << eevee.atkIV
+    // << " / " << eevee.defIV
+    // << " / " << eevee.spAtkIV
+    // << " / " << eevee.spDefIV
+    // << " / " << eevee.speedIV
+    // << " \nHidden Power: " << hpTypes[eevee.hiddenPowerTypeIndex]
+    // << ": " << eevee.hiddenPowerPower
+    // << "\nNature: " << naturesList[eevee.natureIndex];
+    // std::cout<<"\nGender: ";
+    // if (eevee.genderIndex){
+    //     std::cout << "Female";
+    // } else {
+    //     std::cout << "Male";
+    // }
+    // std::cout << "\nShiny: ";
+    // if (eevee.isShiny){
+    //   std::cout << "True";
+    // } else {
+    //   std::cout << "False";
+    // }
+    // std::cout << "\n";
+    // std::cout << "\n+ + + + + + + + + + + + \n\n";
+
 //~~~~~~~~~~~~~~~~~~Target seeking is complete!~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //~~~~~~~~~~~~~~~~~~~Now find a path to target.~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-seed = userInputRerollSeed;
-std::vector<u32> rerollSeeds = {userInputRerollSeed};
-u32 testSeed = userInputRerollSeed;
-instructions[3] = testRerolls(testSeed,callsToTarget,rerollSeeds,m_criteria);
-seed = rerollSeeds.back();
+seed = userInputRerollSeed; //MUST RESET SEED BACK TO MENU SO THAT PATHFINDING WORKS.
+
+//std::cout << "INITIAL CTT: " << callsToTarget << "\n";
+std::vector<u32> rerollSeeds = {seed};
+//goal, bring findGap(seed,titleSeed,1) to zero.
+u32 testSeed = seed;
+int distance = 0;
+bool maxedOut = false;
+while(!maxedOut){
+  // std::cout << "rem CTT: " << callsToTarget << "\n";
+  // std::cout << "rerolls done: " << instructions[3] << "\n"; 
+  mGenerateBattleTeam(testSeed,m_criteria,m_criteria);
+  distance = findGap(rerollSeeds.back(),testSeed,1);
+  if (distance <= callsToTarget){
+    //success,apply rolls
+    rerollSeeds.push_back(testSeed);
+    //std::cout << "Seed ctt before application:" << findGap(seed,titleSeed,1) << std::endl;
+    seed = testSeed;
+    //std::cout << "Seed ctt after application:" << findGap(seed,titleSeed,1) << std::endl;
+    callsToTarget -= distance;
+    instructions[3]++;
+  } else {
+    //break case
+    maxedOut = true;
+  }
+}
+//error check
+//std::cout << "Approach error Check! " << std::hex << seed;
+// if (findGap(seed,titleSeed,1) != callsToTarget){
+//   std::cout << "ERROR! CTT: " << callsToTarget << " WHILE SEED IS: " << findGap(seed,titleSeed,1) << " CALLS AWAY!";
+// } else {
+//   std::cout <<"PASSED ERROR CHECK!\n";
+// }
 
 
+//~~~~~ OPTIMIZE PATH BLOCK - WIP ~~~~~~~~~~~~~~
+// This manip works a bit differently than NTSC, since ntsc simply scans until it gets lucky, so the
+//specific counter isn't that important, except for debugging.
+//This manip identifies a target in the vast swirling ocean of RNG and hunts it down directly.
 int rem = callsToTarget;
 while(rem > 0){
-  if (rem % 2 == 0){
+  //std::cout << "Post-Reroll ctt:" << rem << "\n";
+  if (rem % 2 == 0){//if rem is even
     while (rem >= 2018){
-      instructions[0] += 2; 
+      instructions[0] += 2; // will continue to stay even at this rate.
       rem-= 2018;
     }
   determineFinalInstructions(instructions,rem);
-  } else {
+  } else { //rem is odd
     if (rem >=1009){
-      instructions[0]++;
-      rem-= 1009; 
+      instructions[0]++; //congratulations, now the count is even
+      rem-= 1009; //on next loop will not trigger because is now even.
     } else {
+      //subtract a reroll and try again
       instructions[3]--;
       rem += findGap(rerollSeeds.back(),rerollSeeds.at(rerollSeeds.size()-2),0); 
       rerollSeeds.pop_back();
@@ -975,27 +1051,33 @@ while(rem > 0){
     }   
   }
 }
+//note seed is set to the value at the end of rerolling.
+
+    
+
     //2nd Printing block
     rerollSeeds.pop_back();
     seed = rerollSeeds.back();
-    std::cout << "At reroll #" << instructions[3] << " the seed is: "<<std::hex << seed << std::dec <<" and the team generated will be: \n"
-    << getBattleTeamInfo(seed) 
-    << "\n\n+ + + + + + + + + + + + \n\n";
-    printInstructions(instructions);
-    std::cout << "\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+    //std::cout << "At reroll #" << instructions[3] << " the seed is: "<<std::hex << seed << std::dec <<" and the team generated will be: \n"
+    //<< getBattleTeamInfo(seed) 
+    //<< "\n\n+ + + + + + + + + + + + \n\n";
+    //printInstructions(instructions);
+    //std::cout << "\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
 
-    //WRAP UP BLOCK
+    //standard clear
     eevee = {};
     instructions[0] = 0;
     instructions[1] = 0;
     instructions[2] = 0;
     instructions[3] = 0;
-    std::cout << "\n\n";
-    std::cout <<"The current result has been saved.\nEnter a command to continue:\nCommand: ";
-    getline(std::cin,currentCommand);
-    formatCase(currentCommand,lower);
-    currentCommand.at(0) = toupper(currentCommand.at(0));
-    //std::cout <<"RESULTS STORED: " << previousResults.size() << "\n";
+
+    //COMMANDS
+    //std::cout << "\n\n";
+    //std::cout <<"The current result has been saved.\nEnter a command to continue:\nCommand: ";
+    // getline(std::cin,currentCommand);
+    // formatCase(currentCommand,lower);
+    // currentCommand.at(0) = toupper(currentCommand.at(0));
+    currentCommand = "Reset";
     bool validCommand = false;
     while (!validCommand)
     {
@@ -1018,6 +1100,7 @@ while(rem > 0){
         {
           std::cout << std::hex << previousResults.at(i) << std::endl;
         }
+        
         if (previousResults.size() > 0){
           previousResults.pop_back();
         }
@@ -1029,7 +1112,13 @@ while(rem > 0){
         //Reset
         validCommand = true;
         firstRun = true;
-        userInputRerollSeed = getInputSeed();
+        //userInputRerollSeed = getInputSeed();
+        simSeed += 1;
+        while (simSeed == 0x54 || simSeed == 0x55){
+          simSeed++;
+        }
+          std::cout <<std::hex << simSeed << std::endl;
+        userInputRerollSeed = simSeed;
         seed = userInputRerollSeed;
         listingSeed = seed;
       } else if (currentCommand == commands[4]){
@@ -1037,6 +1126,7 @@ while(rem > 0){
         validCommand = true;
         searchActive = false;
       } else {
+        std::cout <<"Command Entered: " << currentCommand << std::endl;
         std::cout << "Invalid command. Please try again: ";
         getline(std::cin,currentCommand);
         formatCase(currentCommand,lower);
@@ -1044,7 +1134,22 @@ while(rem > 0){
 
       }
     }
+    
+    
+    
+      //assuming most things don't need to be cleared, cuz theres a looooot of variables.
+
+      //reset instructions
+      // for (int i = 0; i < 3; i++)
+      // {
+      //   instructions[i] = 0;
+      // }
+      // currentCommand = "";
     }
+    //process other commands.
+    
+    // std::cout << "\nEnter any key to exit...\n";
+    // getchar();
     return 0;
 }
 

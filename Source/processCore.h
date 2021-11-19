@@ -344,7 +344,7 @@ int findGap(u32 behind, u32 ahead, bool forward){
       LCG(behind);
       counter++;
       if (counter > 100000000){
-        std::cout <<"Error!";
+        std::cout <<"findGap() Error!";
         break; 
       }
     }
@@ -353,7 +353,7 @@ int findGap(u32 behind, u32 ahead, bool forward){
       LCG_BACK(behind);
       counter++;
       if (counter > 100000000){
-        std::cout <<"Error!";
+        std::cout <<"findGap() Error!";
         break; 
       }
     }
