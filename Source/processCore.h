@@ -11,7 +11,6 @@
 #include <cmath>
 #include <math.h>
 
-
 //TODO: before launching, move this into the game specific folders and update the paths.
 
 //Typedef block
@@ -27,7 +26,6 @@ enum emuVer {STABLE,MODERN}; //Stable == 5.0, only matters for xd so far.
 enum coloSecondary {QUILAVA,CROCONAW,BAYLEEF}; //xd only has teddy
 //enum secondaryMon {TEDDIURSA, QUILAVA, CROCONAW, BAYLEEF};
 enum strCase {upper,lower};
-
 
 struct PokemonProperties
   {
@@ -58,6 +56,7 @@ struct PokemonRequirements
     int hiddenPowerPower = 0;
     int genderIndex = 0;
     int isShiny = 0;  
+    bool forceEven = 0;
 };
 
 //extra functions block
@@ -156,7 +155,6 @@ u16 rollRNGwithHiSeed(u32 &seed)
   }
   return hiSeed; //debugging.
 }
-
 
 
 u32 simplePID (u32 &seed){

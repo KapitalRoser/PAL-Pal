@@ -273,14 +273,35 @@ int testRerolls(u32 testSeed,int &callsToTarget, std::vector<u32>&rerollSeeds,st
 return rolls;
 //Don't forget to update seed.
 }
-bool CTTAcceptable(u32 seed,int ctt,std::vector<int>&counts){
+bool CTTAcceptable(u32 seed,int ctt){
+  if (ctt >= 1009 || ctt % 2 == 0){
+    return true;
+  }
+  //The searching code below is super janky, but it works. Seems to perform reasonably well. Ran a 850,000
+  std::vector<u32>temporary  = {seed};
+  std::vector<int> m_criteria = {-1, -1, -1, -1, -1, -1};
+  testRerolls(seed,ctt,temporary,m_criteria);
+  while (!temporary.size() > 2){
+    if (ctt % 2 == 0){
+      return true;
+    } else {
+      std::cout << "hit multiple rolls before 1009";
+      if (temporary.size() > 1){
+        ctt+= findGap(temporary.back(),temporary.at(temporary.size()-2),0);
+        temporary.pop_back();
+      } else {
+        temporary.clear();
+      }
+    }
+  }
+  return false;
+}
+bool CTTAcceptable2(u32 seed,int ctt,std::vector<int>&counts){
   if (ctt >= 1009 || ctt % 2 == 0){
     return true;
   } else {
     counts.at(0)++;
   }
-  //Using current requirements, there are no seeds that require this additional level of searching.
-  //Its best to stick with the guarantee and move on.
   std::vector<u32>temporary  = {seed};
   std::vector<int> m_criteria = {-1, -1, -1, -1, -1, -1};
   testRerolls(seed,ctt,temporary,m_criteria);
@@ -689,7 +710,7 @@ int main(){
         listingSeed = LCG(seed); //seed incremented and stored
         condensedGenerateMon(eevee,seed,eeveeGenderRatio);
         if (foundRunnable(eevee,requirements)){
-          cttPass = CTTAcceptable(seed,seekCallsToTargetEevee(i,listingSeed),counts);
+          cttPass = CTTAcceptable2(seed,seekCallsToTargetEevee(i,listingSeed),counts);
         }
         seed = listingSeed; //seed restored
     }
@@ -705,7 +726,7 @@ int main(){
           std::cout << "I : " << i << " - SEEDS REM: " << INT32_MAX - i << std::endl;
         }
         //std::cout << "CTT: " <<std::dec << ctt << std::endl;
-        CTTAcceptable(seed,ctt,counts);
+        CTTAcceptable2(seed,ctt,counts);
     }
     std::cout << "Success!";
     return 0;

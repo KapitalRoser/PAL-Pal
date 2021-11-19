@@ -12,6 +12,8 @@ enum natureID {Hardy,Lonely,Brave,Adamant,Naughty,Bold,Docile,
 Relaxed,Impish,Lax,Timid,Hasty,Serious,Jolly,Naive,Modest,Mild,
 Quiet,Bashful,Rash,Calm,Gentle,Sassy,Careful,Quirky};
 
+enum instr {memcard,rumble,name,reroll};
+
 enum class WantedShininess
   {
     notShiny,
@@ -278,7 +280,6 @@ int seekCallsToTargetEevee(u32 originSeed, u32 TargetSeed){
 int testRerolls(u32 testSeed,int &callsToTarget, std::vector<u32>&rerollSeeds,std::vector<int>m_criteria){
   bool maxedOut = false;
   int rolls = 0;
-  int i = 0;
   while(!maxedOut){
   mGenerateBattleTeam(testSeed,m_criteria,m_criteria);
   int distance = findGap(rerollSeeds.back(),testSeed,1);
@@ -295,18 +296,22 @@ return rolls;
 //Don't forget to update seed.
 }
 bool CTTAcceptable(u32 seed,int ctt){
-  if (ctt >= 1009 || ctt % 2 == 0){
+if (ctt >= 1009 || ctt % 2 == 0){
     return true;
   }
-  //The searching code below is super janky, but it works. Seems to perform reasonably well. Ran a 850,000
+  //This system is pretty janky, but it works. 
   std::vector<u32>temporary  = {seed};
   std::vector<int> m_criteria = {-1, -1, -1, -1, -1, -1};
   testRerolls(seed,ctt,temporary,m_criteria);
-  while (!temporary.size() > 2){
+  if(temporary.size() == 2){
+    if (ctt % 2 == 0){
+      return true;
+    }
+  }
+  while (temporary.size() > 2){
     if (ctt % 2 == 0){
       return true;
     } else {
-      std::cout << "hit multiple rolls before 1009";
       if (temporary.size() > 1){
         ctt+= findGap(temporary.back(),temporary.at(temporary.size()-2),0);
         temporary.pop_back();
@@ -314,6 +319,9 @@ bool CTTAcceptable(u32 seed,int ctt){
         temporary.clear();
       }
     }
+  }
+  if (ctt % 2 == 0){
+      return true;
   }
   return false;
 }
@@ -331,26 +339,6 @@ bool foundRunnable(PokemonProperties candidate, PokemonRequirements reqs){
     (reqs.isShiny == 2 || reqs.isShiny == candidate.isShiny)
   );
 }
-void determineFinalInstructions(int instructions[4], int &remainingCalls){
-  //ASSUMES EVEN
-  while (remainingCalls > 0){
-    if (remainingCalls >= 40){
-      instructions[1] = remainingCalls / 40; //integer division intentional, want to always round down for safety.
-      remainingCalls -= instructions[1]*40;
-    } else {
-      //std::cout <<"REM: " << remainingCalls << "\n";
-      if (remainingCalls > 1){
-        instructions[2] = remainingCalls / 2;
-        remainingCalls -= instructions[2]*2;
-        //std::cout << "BACKOUTS: " << instructions[2]*2;
-      } else {
-          std::cout << "ERROR: REM IS UNEVEN\n";
-          remainingCalls = 0;
-      }
-    }
-  }
-}
-
 u32 myRollRNGToBattleMenu(u32 &seed, bool fromBoot, bool validMemcard)
 {
   // bool fromBoot = false; //false would be from title screen.
@@ -387,7 +375,97 @@ u32 myRollRNGToBattleMenu(u32 &seed, bool fromBoot, bool validMemcard)
   }
   return seed;
 }
+int standardPathFind(int rem, int instructions[4], std::vector<u32> &rerollSeeds){
+  while (rem > 0){
+    if (rem % 2 == 0){
+      if (rem >= 2018){
+        instructions[memcard] = 2 * (rem / 2018);
+      }
+      if (rem >= 40){
+        instructions[rumble] = rem / 40;
+      }
+      rem = rem % 40;
+      if (rem > 1){
+        instructions[name] = rem / 2;
+      } else if (rem == 1 || rem < 0) {
+        std::cout << "ERROR: REM IS: " << rem << std::endl;
+      }
+      return rem;
+    } else {
+      if (rem >= 1009){
+        instructions[memcard]++; 
+        //applying multiple 1009's on an odd number would cancel out and make it odd again. 
+        rem -= 1009;
+      } else {
+        instructions[reroll]--;
+        rem += findGap(rerollSeeds.back(),rerollSeeds.at(rerollSeeds.size()-2),0); 
+        rerollSeeds.pop_back();
+      }
+    }
+  }
+  return rem;
+}
+int completePath(int rem, int instructions[4]){
+  //assumes conditions are met.
+  if (rem >= 40){
+    instructions[rumble] = rem / 40;
+  }
+  rem = rem % 40;
+  if (rem > 1){
+    instructions[name] = rem / 2;
+  } else if (rem == 1 || rem < 0){
+    std::cout << "ERROR: REM IS: " << rem << std::endl;
+  }
+  return rem; //should equal 0;
+}
+void popReroll(int &rem, int instructions[4],std::vector<u32>&rerollSeeds){
+      instructions[memcard] = 0;
+      instructions[rumble] = 0;
+      instructions[name] = 0;
 
+      instructions[reroll]--;
+      rem += findGap(rerollSeeds.back(),rerollSeeds.at(rerollSeeds.size()-2),0); 
+      rerollSeeds.pop_back();
+}
+int evenPathFind(int rem, int instructions[4],std::vector<u32>&rerollSeeds){
+ while(rem > 0){
+   if (rem % 2 == 1){
+    if (rem >= 1009){
+      instructions[memcard]++;
+      rem-= 1009; //congrats, now even no matter what. Stop worrying.
+    } else {
+      popReroll(rem,instructions,rerollSeeds);
+      continue;
+      //why not account for <1009 and odd? -- already did that when determining if runnable.
+    }
+  }
+  if (rem >= 2018){
+    instructions[memcard] += 2 * (rem / 2018);
+    rem = rem % 2018; //cuts down on copious amounts of rumbles -- typically due to earlier reroll popping.
+  }
+  while(rem / 40 % 2 == 1 && instructions[memcard] > 1){
+      instructions[memcard] -= 2;
+      rem+=2018;
+    } // should remain even from before
+  if (rem / 40 % 2 == 0){
+    return completePath(rem,instructions); //nice! 
+  } else {
+    if (instructions[reroll] > 0){
+      popReroll(rem,instructions,rerollSeeds);
+    } else {
+      rem = completePath(rem,instructions); //the worst case
+      instructions[rumble]--;
+      instructions[name]+= 20; //T_T I'm so sorry I hope it never comes to this.
+    }
+  }
+ }
+   /*
+  EQUATION:
+  if odd, + 1009, else ignore.
+  B*2018 + (A / 40 % 2 == 0)
+  */
+ return rem;
+}
 
 std::vector<u32> autoRollN(u32&seed,int n,std::vector<int>m_criteria){
   //Reroll loop!
@@ -436,7 +514,7 @@ u32 getInputSeed(){
 }
 void readReqsConfig(PokemonRequirements &inputReqs, std::ifstream &config){
 int inputInt = 0;
-    for (int i = 0; i < 11; i++)
+    for (int i = 0; i < 12; i++)
     {
       switch (i)
       {
@@ -497,6 +575,10 @@ int inputInt = 0;
       case 10: //shiny
         config >> inputInt;
         inputReqs.isShiny = inputInt;
+        break;
+      case 11: //Force rumble
+        config >> inputInt; //bool
+        inputReqs.forceEven = inputInt;
         break;
       default:
         break;
@@ -623,7 +705,7 @@ void writeReqsConfig(PokemonRequirements&inputReqs){
     bool allHPTypesEntered = false;
     std::string inputHPT = "";
     std::vector<int> HPTIDXs;
-    std::cout << "type the name of a type, or enter 'any' to accept all types: ";
+    std::cout << "Enter the name of a type, or enter 'any' to accept all types: ";
     while (!allHPTypesEntered){
       getline(std::cin,inputHPT);
       formatCase(inputHPT,lower);
@@ -685,7 +767,7 @@ void writeReqsConfig(PokemonRequirements&inputReqs){
     std::cin.get();
     //next gender
     std::string inputGender = "";
-    std::cout << "Want to choose a specific gender? Type 'Male' or 'M', 'Female' or 'F', or 'Any': ";
+    std::cout << "Want to choose a specific gender? Enter 'Male' or 'M', 'Female' or 'F', or 'Any': ";
     getline(std::cin,inputGender);
     formatCase(inputGender,lower);
     inputGender.at(0) = toupper(inputGender.at(0));
@@ -699,7 +781,7 @@ void writeReqsConfig(PokemonRequirements&inputReqs){
     std::cout << "gender entered succesfully!\n";
     //finally shinystatus
     std::string inputShiny = "";
-    std::cout << "Want the target to be shiny? enter Yes, No, or Any:";
+    std::cout << "Want the target to be shiny? Enter Yes, No, or Any:";
     getline(std::cin,inputShiny);
     formatCase(inputShiny,lower);
     inputShiny.at(0) = toupper(inputShiny.at(0));
@@ -710,7 +792,18 @@ void writeReqsConfig(PokemonRequirements&inputReqs){
     } else {
       inputReqs.isShiny = 2;
     }
-    
+    std::cout << "Shiny status entered succesfully!\n";
+    //finally shinystatus
+    std::string inputEven = "";
+    std::cout << "Want to force the number of Rumble Switches to be even-numbered? Enter Yes or No:";
+    getline(std::cin,inputEven);
+    formatCase(inputEven,lower);
+    inputEven.at(0) = toupper(inputEven.at(0));
+    if (inputEven == "Yes" || inputEven == "Y"){
+      inputReqs.forceEven = true;
+    } else{
+      inputReqs.forceEven = false;
+    }
     std::cout << "All requirements recorded! Good luck!\n";
 
     //config filewrite
@@ -719,22 +812,22 @@ void writeReqsConfig(PokemonRequirements&inputReqs){
     << inputReqs.defIV   <<"\n"<< inputReqs.spAtkIV <<"\n"
     << inputReqs.spDefIV <<"\n"<< inputReqs.speedIV <<"\n"
     << natureIDXs.size()<<"\n";
-    for (unsigned int i = 0; i < natureIDXs.size(); i++)
-    {
+    for (unsigned int i = 0; i < natureIDXs.size(); i++){
       configW << natureIDXs.at(i) << "\n";
     }
     configW << HPTIDXs.size()<<"\n";
-    for (unsigned int i = 0; i < HPTIDXs.size(); i++)
-    {
+    for (unsigned int i = 0; i < HPTIDXs.size(); i++){
       configW << HPTIDXs.at(i) << "\n";
     }
     configW << inputReqs.hiddenPowerPower <<"\n"
     << inputReqs.genderIndex <<"\n"
-    << inputReqs.isShiny;
+    << inputReqs.isShiny<<"\n"
+    << inputReqs.forceEven;
     configW.close();
 }
 PokemonRequirements setPokeReqs(){
   //intended for initial run
+  //maybe make a version check, and store version inside config at the top, so that fresh installs don't need to redo their configs.
   PokemonRequirements inputReqs;
   inputReqs.validNatures.fill(0);
   inputReqs.validHPTypes.fill(0);
@@ -750,31 +843,6 @@ PokemonRequirements setPokeReqs(){
     readReqsConfig(inputReqs,configR);
     return inputReqs;
   }
-      // std::cout <<"REQS: \n"
-    // << requirements.hpIV <<"\n"
-    // << requirements.atkIV <<"\n"
-    // << requirements.defIV<<"\n"
-    // << requirements.spAtkIV<<"\n"
-    // << requirements.spDefIV<<"\n"
-    // << requirements.speedIV<<"\n"
-    // <<"Valid Natures: ";
-    // for (unsigned int i = 0; i < 25; i++)
-    // {
-    //   if (requirements.validNatures[i] == true){
-    //     std::cout << naturesList[i] << "\n";
-    //   }
-    // }
-    // std::cout <<"Valid HPs: ";
-    // for (unsigned int i = 0; i < 16; i++)
-    // {
-    //   if (requirements.validHPTypes[i] == true){
-    //     std::cout << hpTypes[i] << "\n";
-    //   }
-    // }
-    // std::cout
-    // << requirements.hiddenPowerPower <<"\n"
-    // << requirements.genderIndex <<"\n"
-    // << requirements.isShiny <<"\n";
 }
 std::string getLastObtainedCriteriasString(std::vector<int>m_criteria)
 {
@@ -883,7 +951,7 @@ void printLogo(){
 std::cout << "\n\n* * * * * * * * * * * * * * * * * * * *\n\n";
 }
 int main(){
-  //an Oops I got lost - feature might be a nice addition to the main tool,
+  //an "Oops I got lost" - feature might be a nice addition to the main tool,
   //which can find ur seed based on 1 or at most 2 rolls of input again.
   //Also a forward and backwards tabber to move through the rolls (with the team members)
   //unlike with seed alone like it is now.
@@ -909,7 +977,7 @@ int main(){
   requirements.validHPTypes.fill(false);
   requirements.validNatures.fill(false);
   bool firstRun = true;
-  const int MINIMUM_VIABLE_CTT = 1002;
+  const int minimumCTT = 1002;
 
   //initialize
   printLogo();
@@ -922,7 +990,7 @@ int main(){
     //search for runnable eevee.
     // int eeveesSearched = 0;
     if (firstRun){
-      LCGn(seed,1002);
+      LCGn(seed,minimumCTT);
       firstRun = false;
     }
     bool cttPass = false;
@@ -938,114 +1006,106 @@ int main(){
         seed = listingSeed; //seed restored
     }
 
-    //WHEN CONFIRMED VALID: 
-    LCGn_BACK(seed,1000 + 2); // generation minimum
-    titleSeed = seed;
-    std::cout << "Target (seed at title screen): " << std::hex << titleSeed << std::dec << std::endl;
-    //find *primary* calls to target.
-    int callsToTarget = seekCallsToTargetEevee(userInputRerollSeed,listingSeed);
-    printPokeInfo(eevee,listingSeed,callsToTarget);
-//~~~~~~~~~~~~~~~~~~Target seeking is complete!~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-//~~~~~~~~~~~~~~~~~~~Now find a path to target.~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  //WHEN CONFIRMED VALID: 
+  LCGn_BACK(seed,1000 + 2); // generation minimum
+  titleSeed = seed;
+  //find *primary* calls to target.
+  int callsToTarget = seekCallsToTargetEevee(userInputRerollSeed,listingSeed);
+  printPokeInfo(eevee,listingSeed,callsToTarget);
+  std::cout << "Target (seed at title screen): " << std::hex << titleSeed << std::dec << std::endl;
+  std::cout << "If you want to see this Espeon and Teddy in the main program,\n then enter the above seed in the 'Enter seed manually' box.\n";
+  std::cout << "\n+ + + + + + + + + + + + \n\n";
 
-seed = userInputRerollSeed;
-std::vector<u32> rerollSeeds = {userInputRerollSeed};
-u32 testSeed = userInputRerollSeed;
-instructions[3] = testRerolls(testSeed,callsToTarget,rerollSeeds,m_criteria);
-seed = rerollSeeds.back();
+  //~~~~~~~~~~~~~~~~~~Target seeking is complete!~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  //~~~~~~~~~~~~~~~~~~~Now find a path to target.~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  seed = userInputRerollSeed;
+  std::vector<u32> rerollSeeds = {userInputRerollSeed};
+  u32 testSeed = userInputRerollSeed;
+  instructions[3] = testRerolls(testSeed,callsToTarget,rerollSeeds,m_criteria);
+  seed = rerollSeeds.back();
 
 
-int rem = callsToTarget;
-while(rem > 0){
-  if (rem % 2 == 0){
-    while (rem >= 2018){
-      instructions[0] += 2; 
-      rem-= 2018;
-    }
-  determineFinalInstructions(instructions,rem);
+  int rem = callsToTarget;
+  //Default search, no forceEven consideration.
+  if (requirements.forceEven){
+    rem = evenPathFind(rem,instructions,rerollSeeds);
   } else {
-    if (rem >=1009){
-      instructions[0]++;
-      rem-= 1009; 
-    } else {
-      instructions[3]--;
-      rem += findGap(rerollSeeds.back(),rerollSeeds.at(rerollSeeds.size()-2),0); 
-      rerollSeeds.pop_back();
-      seed = rerollSeeds.back();
-    }   
+    rem = standardPathFind(rem,instructions,rerollSeeds);
   }
-}
-    //2nd Printing block
-    rerollSeeds.pop_back();
-    seed = rerollSeeds.back();
-    std::cout << "At reroll #" << instructions[3] << " the seed is: "<<std::hex << seed << std::dec <<" and the team generated will be: \n"
-    << getBattleTeamInfo(seed) 
-    << "\n\n+ + + + + + + + + + + + \n\n";
-    printInstructions(instructions);
-    std::cout << "\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+  
+  
 
-    //WRAP UP BLOCK
-    eevee = {};
-    instructions[0] = 0;
-    instructions[1] = 0;
-    instructions[2] = 0;
-    instructions[3] = 0;
-    std::cout << "\n\n";
-    std::cout <<"The current result has been saved.\nEnter a command to continue:\nCommand: ";
-    getline(std::cin,currentCommand);
-    formatCase(currentCommand,lower);
-    currentCommand.at(0) = toupper(currentCommand.at(0));
-    //std::cout <<"RESULTS STORED: " << previousResults.size() << "\n";
-    bool validCommand = false;
-    while (!validCommand)
-    {
-      if (currentCommand == commands[3]){
-        //Settings
-        validCommand = true;
-        requirements = {};
-        writeReqsConfig(requirements);
-      } else if (currentCommand == commands[0]){
-        //Reject
-        validCommand = true;
-        searchActive = true;
-        seed = listingSeed;
-        previousResults.push_back(listingSeed);
-      } else if (currentCommand == commands[1]){
-        //Restore
-        validCommand = true;
-        searchActive = true;
-        for (unsigned int i = 0; i < previousResults.size(); i++)
-        {
-          std::cout << std::hex << previousResults.at(i) << std::endl;
-        }
-        if (previousResults.size() > 0){
-          previousResults.pop_back();
-        }
-        seed = LCG_BACK(previousResults.back());
-        if (previousResults.size() == 0){
-          seed = userInputRerollSeed;
-        }
-      } else if(currentCommand == commands[2]){
-        //Reset
-        validCommand = true;
-        firstRun = true;
-        userInputRerollSeed = getInputSeed();
-        seed = userInputRerollSeed;
-        listingSeed = seed;
-      } else if (currentCommand == commands[4]){
-        //Exit
-        validCommand = true;
-        searchActive = false;
-      } else {
-        std::cout << "Invalid command. Please try again: ";
-        getline(std::cin,currentCommand);
-        formatCase(currentCommand,lower);
-        currentCommand.at(0) = toupper(currentCommand.at(0));
+  //2nd Printing block
+  rerollSeeds.pop_back();
+  seed = rerollSeeds.back();
+  std::cout << "At reroll #" << instructions[3] << " the seed is: "<<std::hex << seed << std::dec <<" and the team generated will be: \n"
+  << getBattleTeamInfo(seed) 
+  << "\n\n+ + + + + + + + + + + + \n\n";
+  printInstructions(instructions);
+  std::cout << "\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
 
+  //WRAP UP BLOCK
+  eevee = {};
+  instructions[0] = 0;
+  instructions[1] = 0;
+  instructions[2] = 0;
+  instructions[3] = 0;
+  std::cout <<"\nThe current result has been saved.\nEnter a command to continue:\nCommand: ";
+  getline(std::cin,currentCommand);
+  formatCase(currentCommand,lower);
+  currentCommand.at(0) = toupper(currentCommand.at(0));
+  //std::cout <<"RESULTS STORED: " << previousResults.size() << "\n";
+  bool validCommand = false;
+  while (!validCommand)
+  {
+    if (currentCommand == commands[3]){
+      //Settings
+      validCommand = true;
+      requirements = {};
+      writeReqsConfig(requirements);
+    } else if (currentCommand == commands[0]){
+      //Reject
+      validCommand = true;
+      searchActive = true;
+      seed = listingSeed;
+      previousResults.push_back(listingSeed);
+    } else if (currentCommand == commands[1]){
+      //Restore
+      validCommand = true;
+      searchActive = true;
+      for (unsigned int i = 0; i < previousResults.size(); i++)
+      {
+        std::cout << std::hex << previousResults.at(i) << std::endl;
       }
+      if (previousResults.size() > 0){
+        previousResults.pop_back();
+      }
+      seed = LCG_BACK(previousResults.back());
+      if (previousResults.size() == 0){
+        seed = userInputRerollSeed;
+      }
+    } else if(currentCommand == commands[2]){
+      //Reset
+      validCommand = true;
+      firstRun = true;
+      userInputRerollSeed = getInputSeed();
+      seed = userInputRerollSeed;
+      listingSeed = seed;
+    } else if (currentCommand == commands[4]){
+      //Exit
+      validCommand = true;
+      searchActive = false;
+    } else {
+      std::cout << "Invalid command. Please try again: ";
+      getline(std::cin,currentCommand);
+      formatCase(currentCommand,lower);
+      currentCommand.at(0) = toupper(currentCommand.at(0));
+
     }
-    }
-    return 0;
+  }
+  }
+  return 0;
 }
 
     /*
