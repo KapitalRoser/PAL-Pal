@@ -1,0 +1,31 @@
+<RCC>
+    <qresource prefix="/new/general">
+        <file>FGYJDhdXsAMMryX.jpg</file>
+        <file>palPalIcon.png</file>
+        <file>133Eevee_Pokemon_XD_Gale_of_Darkness.png</file>
+    </qresource>
+    <qresource prefix="/new/rollIcons">
+        <file>QBPokes/Articuno.png</file>
+        <file>QBPokes/Blaziken.png</file>
+        <file>QBPokes/Blissey.png</file>
+        <file>QBPokes/Deoxys.png</file>
+        <file>QBPokes/Entei.png</file>
+        <file>QBPokes/Gengar.png</file>
+        <file>QBPokes/Jirachi.png</file>
+        <file>QBPokes/Kangaskhan.png</file>
+        <file>QBPokes/Latias.png</file>
+        <file>QBPokes/Latios.png</file>
+        <file>QBPokes/Mew.png</file>
+        <file>QBPokes/Mewtwo.png</file>
+        <file>QBPokes/Moltres.png</file>
+        <file>QBPokes/Raikou.png</file>
+        <file>QBPokes/Rayquaza.png</file>
+        <file>QBPokes/Sceptile.png</file>
+        <file>QBPokes/Suicune.png</file>
+        <file>QBPokes/Swampert.png</file>
+        <file>QBPokes/Zapdos.png</file>
+        <file>QBPokes/Claydol.png</file>
+        <file>QBPokes/None.png</file>
+    </qresource>
+    <qresource prefix="/"/>
+</RCC>
