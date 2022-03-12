@@ -140,7 +140,7 @@ u16 rollRNGwithHiSeed(u32 &seed)
 u32 simplePID (u32 &seed){
     u32 hId = LCG(seed) >> 16;
     u32 lId = LCG(seed) >> 16;
-    u32 PID = (hId << 16) | (lId);
+    u32 PID = (hId << 16) | (lId); //would hId ^ lId be equivalent? that's what fish's code uses.
     return PID;
 }
 bool isPidShiny(const u16 TID, const u16 SID, const u32 PID)

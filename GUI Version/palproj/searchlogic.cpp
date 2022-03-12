@@ -1,4 +1,7 @@
 #include "searchlogic.h"
+//const std::string CONFIG_FILENAME = "Users/Carter/Documents/PAL-Pal.app/Contents/Resources/config.txt";
+const std::string configPath = std::string(getenv("HOME")) + "/Library/Application Support/PAL-Pal";
+const std::string configName = configPath + "/config.txt";
 
 u32 complexPID(u32& seed, const u32 hTrainerId, const u32 lTrainerId, const u32 dummyId, const WantedShininess shininess, const s8 wantedGender, const u32 genderRatio, const s8 wantedNature)
 {
@@ -519,12 +522,12 @@ config >> versionRead; //version check;
     }
 }
 PokemonRequirements setPokeReqs(){
-    const std::string CONFIG_FILENAME = "config.txt";
+
     PokemonRequirements inputReqs;
     inputReqs.validNatures.fill(0);
     inputReqs.validHPTypes.fill(0);
     std::string readVersion = "";
-    std::ifstream configR(CONFIG_FILENAME); //At this point, everything should be vetted. This is processing not validation.
+    std::ifstream configR(configName); //At this point, everything should be vetted. This is processing not validation.
     readReqsConfig(inputReqs,configR);
     configR.close();
     return inputReqs;

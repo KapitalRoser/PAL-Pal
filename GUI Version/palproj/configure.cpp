@@ -2,9 +2,14 @@
 #include "ui_configure.h"
 #include "processCore.h"
 #include "searchlogic.h"
+#include "unistd.h"
 
 PokemonRequirements inputReqs;
 
+const std::string CONFIG_FILEPATH = "/Users/Carter/Documents/PAL-Pal.app/Contents/Resources/config.txt";
+const std::string configPath = std::string(getenv("HOME")) + "/Library/Application Support/PAL-Pal";
+const std::string configName = configPath + "/config.txt";
+//std::string configPath = strcat(getenv("HOME"),"/Documents/PAL-Pal/config.txt");
 std::vector<unsigned int> naturesChosen;
 std::vector<unsigned int> hiddenPowersChosen;
 
@@ -16,7 +21,7 @@ std::vector<unsigned int> hiddenPowersChosen;
 void configure::writeReqsToFile(){
     //assumes formatted
     //write reqs to file
-    std::ofstream configW ("config.txt");
+    std::ofstream configW (configName);
     const std::string version = "r1.0";
     configW << version << "\n";
 
@@ -61,7 +66,7 @@ void configure::writeReqsToFile(){
     if (ui->radioFemale->isChecked()){
         genderStatus = 1;
     }
-    if (ui->radioAnyGender){
+    if (ui->radioAnyGender->isChecked()){
         genderStatus = 2;
     }
     configW << genderStatus << "\n";
@@ -88,11 +93,17 @@ void configure::readExisting(){
     int lineCount = 0;
     bool valid = 0;
     std::string empt;
-    std::ifstream existing("config.txt");
+    std::ifstream existing(configName);
+
     //This verification step just loosely checks if the file was corrupted in some way
     //Like if it didn't write all the lines, or the user deleted lines or something.
     //Honestly not thrilled with this. May need to redesign or reconsider it's existence entirely.
     //All I want to do is prevent crashes.
+    if(existing.fail()){
+        qInfo() << "Config corrupted or not found!";
+    } else {
+        qInfo() << "config file found!";
+    }
     while(!existing.fail()){
         lineCount++;
         existing >> empt;
@@ -158,7 +169,7 @@ configure::configure(QWidget *parent) :
     ui->setupUi(this);
     naturesChosen.clear();
     hiddenPowersChosen.clear();
-
+//    ui->pushButton->setText(QString::fromStdString(CONFIG_FILEPATH));
     //First Check for existing data
     readExisting();
     QString boxStyle = "QGroupBox{border:1px solid gray; border-radius: 5px; margin-top: 6px;} QGroupBox::title{subcontrol-origin: margin;left: 7px; padding: 0px 5px 0px 5px;}";

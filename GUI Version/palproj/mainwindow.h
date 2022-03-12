@@ -3,6 +3,8 @@
 
 #include <QMainWindow>
 #include "searchlogic.h"
+#include <sys/stat.h>
+#include <sys/types.h>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }

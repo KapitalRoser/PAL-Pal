@@ -6,9 +6,12 @@
 #include "searchlogic.h" //gets processCore from here.
 #include "qmessagebox.h"
 #include <QClipboard>
-
+#include <CoreFoundation/CFBundle.h>
 
 std::vector<searchResult>eevees;
+//declare this directory as a member in mainwindow? would be nice not to have to derive it again
+const std::string configPath = std::string(getenv("HOME")) + "/Library/Application Support/PAL-Pal";
+const std::string configName = configPath + "/config.txt";
 
 QString formatHex(u32 num){
     return QString::number(num,16).toUpper();
@@ -137,6 +140,7 @@ void MainWindow::depopulateLabels(){
     ui->buttonSearch->setEnabled(false);
     QString boxStyle = "QGroupBox{border:1px solid gray; border-radius: 5px; margin-top: 6px;} QGroupBox::title{subcontrol-origin: margin;left: 7px; padding: 0px 5px 0px 5px;}";
     ui->instructionBox->setStyleSheet(boxStyle);
+    ui->instructionBox->setEnabled(false);
     QString frameStyle = "QFrame{border:3px solid dimgray; border-radius: 5px; margin-top: 6px;} QLabel{border:none;}";
     ui->pokeGridFrame->setStyleSheet("QFrame{border:2px solid dimgray; border-radius: 5px; margin-top: 6px;} QLabel{border:none;}");
     ui->EeveeFrame->setStyleSheet(frameStyle);
@@ -177,6 +181,7 @@ void MainWindow::depopulateLabels(){
     ui->customTargetDisplay->setText("0x???");
     ui->labelErrorText->setText("");
     ui->butCopyTitle->setText("Copy");
+    ui->butCopyTitle->setEnabled(false);
 
     QString blackColor = "color: black;";
     ui->labelATKIV->setStyleSheet(blackColor);
@@ -190,8 +195,18 @@ void MainWindow::checkFile(){
     //right now only # of lines is checked for, regardless of content.
     //If people break this somehow then i'll implement more rigourous validation.
     int lineCount = 0;
-    std::ifstream existing("config.txt");
+    std::ifstream existing(configName);
     std::string empt;
+    if (existing.fail()){
+    //label "No configuration set!
+        qInfo() << "Creating folder at: " << QString::fromStdString(configPath) << "\n";
+        qInfo() << "Home Directory: " << getenv("HOME");
+        if (mkdir(configPath.c_str(),0777) == -1){
+            qInfo() << "ERROR, FILE FOLDER EXISTS";
+        } else {
+            qInfo() << "FILE FOLDER SUCCESS!";
+        }
+    }
     while(!existing.fail()){
         lineCount++;
         existing >> empt;
@@ -201,12 +216,23 @@ void MainWindow::checkFile(){
          //minimum # of lines, assuming 1 nature and one hp
         //NOTE THAT NOT FILTERING FOR NATURE/HP IS EQUIVALENT TO FILTERING FOR ALL OF THEM
         ui->seedEntry->setEnabled(true);
+        ui->butPasteInput->setEnabled(true);
+        ui->EeveeFrame->setEnabled(true);
+        ui->titleSeedGrid->setEnabled(true);
+        ui->seedInputContainer->setEnabled(true);
+        ui->ConfigStatusLabel->setText("Configuration set!");
     } else {
+        ui->ConfigStatusLabel->setText("Configuration not set!");
+        depopulateLabels();
+        ui->EeveeFrame->setEnabled(false);
+        ui->titleSeedGrid->setEnabled(false);
+        ui->seedInputContainer->setEnabled(false);
         ui->seedEntry->setEnabled(false);
         ui->buttonSearch->setEnabled(false);
         ui->buttonReset->setEnabled(false);
         ui->buttonNext->setEnabled(false);
         ui->buttonPrevious->setEnabled(false);
+        ui->butPasteInput->setEnabled(false);
     }
     //ui->labelTitleSeed->setText(QString::number(lineCount);
     existing.clear();
@@ -219,6 +245,19 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+
+//    CFBundleRef mainBundle = CFBundleGetMainBundle();
+//    CFURLRef ppIcon = CFBundleCopyResourceURL(mainBundle,CFSTR("palPalIcon"), CFSTR("icns"),NULL);
+//    std::string iconStr;
+//    if (ppIcon != NULL){
+//        qInfo() << "Found icon!";
+//        iconStr = CFStringGetCStringPtr(CFURLGetString(ppIcon),kCFStringEncodingUTF8);
+//        iconStr.erase(0,7);
+//        qInfo() << "Icon path: " << QString::fromStdString(iconStr);
+//    } else {
+//        qInfo() << "Didn't find icon!";
+//    }
+//    this->setWindowIcon(QString::fromStdString(iconStr));
     depopulateLabels();
     checkFile();
 
@@ -233,11 +272,13 @@ MainWindow::~MainWindow()
 void MainWindow::on_buttonSearch_clicked()
 {
     eevees.clear();
-    ui->buttonPrevious->setEnabled(false);
     const u32 referenceSeed = ui->seedEntry->text().toUInt(nullptr,16); //call it input cleansing.
     searchResult searchData = searchForEevee(referenceSeed,referenceSeed,true);
     populateLabels(searchData);
     eevees.push_back(searchData);
+    ui->buttonPrevious->setEnabled(false);
+    ui->instructionBox->setEnabled(true);
+    ui->butCopyTitle->setEnabled(true);
     ui->buttonNext->setEnabled(true);
     ui->buttonReset->setEnabled(true);
 }
@@ -313,6 +354,7 @@ void MainWindow::on_butCustomSearch_clicked()
     u32 customInSeed = ui->seedEntry_2->text().toUInt(nullptr,16);
     u32 targetSeed = ui->targetEntry->text().toUInt(nullptr,16);
     ui->customTargetDisplay->setText("0x" + formatHex(targetSeed));
+    ui->instructionBox->setEnabled(true);
     int ctt = findGap(customInSeed,targetSeed,true);
 
     if (ctt == -1){
